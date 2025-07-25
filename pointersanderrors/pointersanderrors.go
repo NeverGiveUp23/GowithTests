@@ -20,6 +20,8 @@ type Bank interface {
 	Balance() float64
 }
 
+var ErrInsufficientFunds = errors.New("cannot withdraw, insufficient funds")
+
 func (w *Wallet) Deposit(amount Bitcoin) {
 	fmt.Printf("address of balance in Deposit %p\n", &w.balance)
 	w.balance += amount
@@ -37,7 +39,7 @@ func (b Bitcoin) String() string {
 
 func (w *Wallet) Withdraw(amount Bitcoin) error {
 	if amount > w.balance {
-		return errors.New("oh no")
+		return ErrInsufficientFunds
 	}
 	w.balance -= amount
 	return nil
