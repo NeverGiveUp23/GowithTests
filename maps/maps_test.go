@@ -3,14 +3,25 @@ package maps
 import "testing"
 
 func TestAdd(t *testing.T) {
-	dictionary := Dictionary{}
-	word := "test"
-	definition := "this is just a test"
-	dictionary.Add(word, definition)
+	t.Run("new word", func(t *testing.T) {
+		dictionary := Dictionary{}
+		word := "test"
+		definition := "this is just a test"
+		dictionary.Add(word, definition)
 
-	dictionary.Add(word, definition)
+		dictionary.Add(word, definition)
 
-	assertDefinition(t, dictionary, word, definition)
+		assertDefinition(t, dictionary, word, definition)
+	})
+
+	t.Run("existing word", func(t *testing.T) {
+		word := "test"
+		definition := "this is just a test"
+		dictionary := Dictionary{word: definition}
+		err := dictionary.Add(word, "new test")
+		assertError(t, err, ErrNotFound)
+		assertDefinition(t, dictionary, word, definition)
+	})
 }
 
 func TestSearch(t *testing.T) {
@@ -31,6 +42,16 @@ func TestSearch(t *testing.T) {
 
 		assertError(t, got, ErrNotFound)
 	})
+}
+
+func TestUpdate(t *testing.T) {
+	word := "test"
+	definition := "this is just a test"
+	dictionary := Dictionary{word: definition}
+	newDefinition := "new definition"
+
+	dictionary.Update(word, newDefinition)
+	assertDefinition(t, dictionary, word, newDefinition)
 }
 
 func assertStrings(t testing.TB, got, want string) {
