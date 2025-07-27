@@ -1,6 +1,8 @@
 package maps
 
-import "errors"
+import (
+	"errors"
+)
 
 type Dictionary map[string]string
 
@@ -27,10 +29,10 @@ func (d Dictionary) Search(word string) (string, error) {
 func (d Dictionary) Add(word, definition string) error {
 	_, err := d.Search(word)
 
-	switch err {
-	case ErrNotFound:
+	switch {
+	case errors.Is(err, ErrNotFound):
 		d[word] = definition
-	case nil:
+	case err == nil:
 		return ErrWordExists
 	default:
 		return err

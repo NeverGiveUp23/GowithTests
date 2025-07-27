@@ -7,9 +7,10 @@ func TestAdd(t *testing.T) {
 		dictionary := Dictionary{}
 		word := "test"
 		definition := "this is just a test"
-		dictionary.Add(word, definition)
-
-		dictionary.Add(word, definition)
+		err := dictionary.Add(word, definition)
+		if err != nil {
+			return
+		}
 
 		assertDefinition(t, dictionary, word, definition)
 	})
