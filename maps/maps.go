@@ -13,8 +13,9 @@ type Search interface {
 type DictionaryErr string
 
 var (
-	ErrNotFound   = errors.New("could not find the word you were looking for")
-	ErrWordExists = errors.New("cannot add word because it already exists")
+	ErrNotFound          = errors.New("could not find the word you were looking for")
+	ErrWordExists        = errors.New("cannot add word because it already exists")
+	ErrWordDoesNotExists = DictionaryErr("cannot perform opertion on word because it does not exists")
 )
 
 func (d Dictionary) Search(word string) (string, error) {
@@ -40,8 +41,34 @@ func (d Dictionary) Add(word, definition string) error {
 	return nil
 }
 
-func (d Dictionary) Update(word, definition string) {
-	d[word] = definition
+func (d Dictionary) Update(word, definition string) error {
+	_, err := d.Search(word)
+
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return ErrWordDoesNotExists
+	case err == nil:
+		d[word] = definition
+	default:
+		return err
+	}
+
+	return nil
+}
+
+func (d Dictionary) Delete(word string) error {
+	_, err := d.Search(word)
+
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return ErrWordDoesNotExists
+	case err == nil:
+		delete(d, word)
+	default:
+		return err
+	}
+
+	return nil
 }
 
 func (e DictionaryErr) Error() string {
