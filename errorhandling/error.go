@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
+	"sync"
+	"time"
 )
 
 // for more design you can make err variable to be flexible.
@@ -12,10 +15,26 @@ var (
 	ErrTruckNotFound  = errors.New("truck not found")
 )
 
+var (
+	_, SuccessToLoadCargo = fmt.Println("Truck is ready to load")
+)
+
+type contextKey string
+
+var userIDKey contextKey = "userID"
+
 type Truck interface {
 	LoadCargo() error
 	UnloadCargo() error
 }
+
+// If you want to make a generic map you can create a function, this is option 1
+func makeMap[K comparable, V any]() map[K]V {
+	return make(map[K]V)
+}
+
+// option 2 type alias from Go 1.18+
+type GenericMap[K comparable, V any] map[K]V
 
 type GasTruck struct {
 	id    string
@@ -29,50 +48,107 @@ type ElectricTruck struct {
 }
 
 func (t *GasTruck) LoadCargo() error {
-	return ErrTruckNotFound
+	t.cargo += 1
+	return nil
 }
 
 func (e *ElectricTruck) LoadCargo() error {
-	return ErrTruckNotFound
+	e.cargo += 1
+	e.battery -= 1
+	return nil
 }
 
 func (e *ElectricTruck) UnloadCargo() error {
+	e.cargo -= 1
+	e.battery -= 1
 	return ErrTruckNotFound
 }
 
 func (t *GasTruck) UnloadCargo() error {
+	t.cargo = 0
 	return ErrTruckNotFound
 }
 
-func processTrucks(truck Truck) error {
-	fmt.Printf("processing truck: %s\n", truck)
-	if err := truck.LoadCargo(); err != nil {
+func processTrucks(ctx context.Context, truck Truck) error {
+	fmt.Printf("started processing truck: %+v \n", truck)
+
+	//userID := ctx.Value(userIDKey)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*2)
+	defer cancel()
+
+	delay := time.Second * 3
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(delay):
+		break
+	}
+
+	err := truck.LoadCargo()
+	if err != nil {
 		return fmt.Errorf("error loading cargo: %w", err)
 	}
-	return ErrNotImplemented
+
+	err = truck.UnloadCargo()
+	if err != nil {
+		return fmt.Errorf("error loading cargo: %w", err)
+	}
+
+	fmt.Printf("finished processing truck: %+v \n", truck)
+	return nil
+}
+
+func processFleet(ctx context.Context, trucks []Truck) error {
+	var wg sync.WaitGroup
+
+	for _, t := range trucks {
+		wg.Add(1)
+
+		go func(t Truck) {
+			if err := processTrucks(ctx, t); err != nil {
+				log.Print(err)
+			}
+
+			wg.Done()
+		}(t)
+	}
+	wg.Wait()
+	return nil
 }
 
 func main() {
 
-	trucks := []GasTruck{
-		{id: "Truck-1"},
-		{id: "Truck-2"},
-		{id: "Truck-3"},
+	ctx := context.Background() // carry info and cancel to control the flow
+	ctx = context.WithValue(ctx, userIDKey, 42)
+
+	// Option 1: Function
+	person := makeMap[string, interface{}]()
+	person["name"] = "Felix"
+	person["age"] = 32
+
+	age, exist := person["age"].(int)
+	if !exist {
+		log.Fatal("age does not exist")
+		return
+	}
+	log.Println(age)
+
+	// Option 2: Type Alias
+	person2 := GenericMap[string, interface{}]{}
+	person2["name"] = "Generic"
+
+	fleet := []Truck{
+		&GasTruck{id: "NT1", cargo: 0},
+		&ElectricTruck{id: "ET1", cargo: 0, battery: 100},
+		&GasTruck{id: "NT2", cargo: 0},
+		&ElectricTruck{id: "ET2", cargo: 0, battery: 100},
 	}
 
-	//eTrucks := []ElectricTruck{
-	//	{id: "eTruck-1"},
-	//	{id: "eTruck-2"},
-	//	{id: "eTruck-3"},
-	//}
+	if err := processFleet(ctx, fleet); err != nil {
+		fmt.Printf("Error processing fleet: %v\n", err)
+		return
+	}
 
-	err := processTrucks(&GasTruck{id: "1"})
-	if err != nil {
-		log.Fatalf("Error processing truck: %s", err)
-	}
-	err = processTrucks(&ElectricTruck{id: "2"})
-	if err != nil {
-		log.Fatalf("Error processing truck: %s", err)
-	}
+	fmt.Println("All trucks processed")
 
 }
