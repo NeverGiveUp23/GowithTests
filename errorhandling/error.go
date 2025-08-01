@@ -100,20 +100,29 @@ func processTrucks(ctx context.Context, truck Truck) error {
 
 func processFleet(ctx context.Context, trucks []Truck) error {
 	var wg sync.WaitGroup
+	errorsChan := make(chan error)
+
+	defer close(errorsChan)
 
 	for _, t := range trucks {
 		wg.Add(1)
 
 		go func(t Truck) {
 			if err := processTrucks(ctx, t); err != nil {
-				log.Print(err)
+				errorsChan <- err // send error to the channel
 			}
 
 			wg.Done()
 		}(t)
 	}
 	wg.Wait()
-	return nil
+
+	select {
+	case err := <-errorsChan:
+		return err
+	default:
+		return nil
+	}
 }
 
 func main() {
